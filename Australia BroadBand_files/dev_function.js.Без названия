@@ -1,0 +1,6 @@
+$(document).ready(function(){
+       $('.contact-us.form2 .error').hide();
+});
+$('body').on('click', '.js-order', function(){
+       //$('span.error').hide();
+})

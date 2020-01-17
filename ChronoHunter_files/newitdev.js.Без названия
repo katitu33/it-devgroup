@@ -1,0 +1,195 @@
+var AjaxForm = {
+
+    initialize: function (afConfig) {
+        //$(afConfig['formSelector']).find('.error').show();
+        if (!jQuery().ajaxForm) {
+            document.write('<script src="' + afConfig['assetsUrl'] + 'js/lib/jquery.form.min.js"><\/script>');
+        }
+        if (!jQuery().jGrowl) {
+            document.write('<script src="' + afConfig['assetsUrl'] + 'js/lib/jquery.jgrowl.min.js"><\/script>');
+        }
+
+        $(document).ready(function () {
+            $.jGrowl.defaults.closerTemplate = '<div>[ ' + afConfig['closeMessage'] + ' ]</div>';
+        });
+
+        $(document).on('submit', afConfig['formSelector'], function (e) {
+            $(this).ajaxSubmit({
+                dataType: 'json',
+                data: {pageId: afConfig['pageId']},
+                url: afConfig['actionUrl'],
+                beforeSerialize: function (form) {
+                    form.find(':submit').each(function () {
+                        if (!form.find('input[type="hidden"][name="' + $(this).attr('name') + '"]').length) {
+                            $(form).append(
+                                $('<input type="hidden">').attr({
+                                    name: $(this).attr('name'),
+                                    value: $(this).attr('value')
+                                })
+                            );
+                        }
+                    })
+                },
+                beforeSubmit: function (fields, form) {
+                    //noinspection JSUnresolvedVariable
+                    if (typeof(afValidated) != 'undefined' && afValidated == false) {
+                        return false;
+                    }
+
+                    //form.find('.error').html('');
+                    //form.find('p.error').hide();
+                    form.find('input,textarea,select,button').attr('disabled', true);
+                    return true;
+                },
+                success: function (response, status, xhr, form) {
+
+                    form.find('input,textarea,select,button').attr('disabled', false);
+                    response.form = form;
+                    $(document).trigger('af_complete', response);
+                    if (!response.success) {
+
+                        //AjaxForm.Message.error(response.message);
+                        if( response.data.name !== "" && response.data.name !== undefined){
+
+                            form.find('input[name=name]').next('p').html(response.data.name.replace('<span class="error">', '').replace('</span>', ''));
+                        }else{
+                            form.find('input[name=name]').next('p').html('');
+                        }
+                        if( response.data.phone !== "" && response.data.phone !== undefined){
+                            form.find('input[name=phone]').next('p').html(response.data.phone.replace('<span class="error">', '').replace('</span>', ''));
+                        }else{
+                            form.find('input[name=phone]').next('p').html('');
+                        }
+                        if( response.data.email !== "" && response.data.email !== undefined){
+                            form.find('input[name=email]').next('p').html(response.data.email.replace('<span class="error">', '').replace('</span>', ''));
+                        }else{
+                            form.find('input[name=email]').next('p').html('');
+                        }
+
+                        if (response.data) {
+                            var key, value, focused;
+                            for (key in response.data) {
+                                if (response.data.hasOwnProperty(key)) {
+                                    if (!focused) {
+                                        form.find('[name="' + key + '"]').focus();
+                                        focused = true;
+                                    }
+                                    value = response.data[key];
+                                    form.find('p.error.'+key+'').show();
+                                }
+                            }
+                        }
+                        if(response.data.recaptcha !== "" && response.data.recaptcha !== undefined){
+                            $('.formOrder__body').removeClass('active');
+                            $('.formOrder__body').eq(4).addClass('active');
+                            $('.formOrder__counter span').html(5);
+                            $('.progress-bar, .formOrder').attr('data-step',5);
+
+                            if(form.find('#recapcha').find('.error').length>0){
+                                form.find('#recapcha').find('.error').html('Press "I`m not a robot"').show();
+                            }else{
+                                form.find('#recapcha').append('<span class="error" style="text-align:center">Press "I`m not a robot"</span>').show();
+                            }
+                        }else{
+                            $('.formOrder__body').removeClass('active');
+                            $('.formOrder__body').eq(0).addClass('active');
+                            $('.formOrder__counter span').html(1);
+                            $('.progress-bar, .formOrder').attr('data-step',1);
+                            form.find('#recapcha').remove('.error');
+                        }
+
+                        if (typeof(grecaptcha) != 'undefined') {
+                            //noinspection JSUnresolvedVariable
+                            grecaptcha.reset(capcha_OrderForm);
+                        }
+                    }
+                    else {
+                        //AjaxForm.Message.success(response.message);
+                        $('#popupMessage').show()
+                        $('#popupOrder').hide();
+
+                        form[0].reset();
+                        // form.find('.error').removeClass('error');
+                        $('.progress-bar, .formOrder').attr('data-step', 1);
+                        $('.formOrder__counter').find('span').html(1);
+                        //noinspection JSUnresolvedVariable
+                        if (typeof(grecaptcha) != 'undefined') {
+                            //noinspection JSUnresolvedVariable
+                            grecaptcha.reset(capcha_OrderForm);
+                        }
+                        if (form.hasClass('js_contact_page_form')){
+
+                            form.find('.formOrder__body').removeClass('active');
+                            form.find('.formOrder__body.js_successfully').addClass('active');
+                            form.find('.progress-bar').add(form).attr('data-step', 6);
+                            form.find('.formOrder .error').html('');
+                            form.find('.formOrder__btn.next').hide();
+                            form.find('.formOrder__counter').hide();
+
+                            setTimeout(function () {
+                                form.find('.formOrder__body').removeClass('active').eq(0).addClass('active');
+                                $('.formOrder__btn.next').show();
+                                form.find('.formOrder__counter').show();
+                                form.find('.progress-bar').add(form).attr('data-step', 1);
+                                form.find('.form-group').removeClass('focused');
+                            }, 5000);
+                        } else {
+                            form.find('.formOrder__body').removeClass('active').eq(0).addClass('active');
+                            setTimeout(function () {
+
+                                $('#popupMessage').hide();
+                                $('body').css('position','static');
+                            }, 10000);
+                        }
+                    }
+                }
+            });
+            e.preventDefault();
+            return false;
+        });
+
+        $(document).on('keypress change', '.error', function () {
+            var key = $(this).attr('name');
+            //$(this).removeClass('error');
+            $('.error_' + key).html('').removeClass('error');
+        });
+
+        $(document).on('reset', afConfig['formSelector'], function () {
+            $(this).find('.error').html('');
+            AjaxForm.Message.close();
+        });
+    }
+
+};
+
+
+//noinspection JSUnusedGlobalSymbols
+AjaxForm.Message = {
+    success: function (message, sticky) {
+        if (message) {
+            if (!sticky) {
+                sticky = false;
+            }
+            $.jGrowl(message, {theme: 'af-message-success', sticky: sticky});
+        }
+    },
+    error: function (message, sticky) {
+        if (message) {
+            if (!sticky) {
+                sticky = false;
+            }
+            $.jGrowl(message, {theme: 'af-message-error', sticky: sticky});
+        }
+    },
+    info: function (message, sticky) {
+        if (message) {
+            if (!sticky) {
+                sticky = false;
+            }
+            $.jGrowl(message, {theme: 'af-message-info', sticky: sticky});
+        }
+    },
+    close: function () {
+        $.jGrowl('close');
+    },
+};
